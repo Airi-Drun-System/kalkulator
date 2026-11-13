@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="description" content="КальКулятор — RPG внутри калькулятора от VegasDev">
+<title>КальКулятор</title>
+<style>
+/* Как приложение «Калькулятор» на телефоне: чёрный фон, вкладки сверху, большое число справа, кнопки-скруглённые квадраты 4 в ряд, операции оранжевым. */
+:root {
+  --bg: #000000; --key: #2B2B2B; --key-hi: #3A3A3A; --or: #FF8A1F; --eq: #FF8A1F; --eq-hi: #FF9D45;
+  --text: #EDEDED; --muted: #7D7D7D; --label: #6E6E6E;
+  --pix: 'Pixelify Sans', 'Courier New', monospace; --ui: 'Inter', 'Roboto', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; height: 100dvh; overscroll-behavior: none; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--ui); overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.app { height: 100%; height: 100dvh; width: min(460px, 100%); margin: 0 auto; display: flex; flex-direction: column; box-sizing: border-box; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: max(10px, env(safe-area-inset-top, 0px)); padding-bottom: max(14px, env(safe-area-inset-bottom, 0px)); gap: 8px; }
+.tabs { display: flex; align-items: center; gap: 22px; padding: 8px 4px 0 18px; flex-shrink: 0; }
+.tab { border: 0; background: none; padding: 6px 0; white-space: nowrap; font-family: var(--ui); font-size: 21px; font-weight: 500; color: var(--muted); cursor: pointer; }
+.tab.on { color: var(--text); }
+.tab b { color: var(--or); font-weight: 500; }
+.dots { margin-left: auto; width: 44px; height: 44px; border: 0; background: none; color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; }
+.display { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; }
+canvas#lcd { display: block; width: 100%; flex: 1; min-height: 0; max-height: 50vw; object-fit: contain; object-position: center bottom; image-rendering: pixelated; background: var(--bg); }
+.expr { min-height: 20px; text-align: right; font-size: 18px; color: var(--muted); letter-spacing: .1em; white-space: nowrap; overflow: hidden; padding-right: 8px; }
+.num { text-align: right; font-size: clamp(34px, 6.2dvh, 60px); font-weight: 300; line-height: 1.05; padding-right: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: clamp(42px, 8.2dvh, 84px); gap: clamp(8px, 2.6vw, 14px); flex-shrink: 0; }
+.keys .mini { grid-auto-rows: auto; }
+.k { position: relative; border: 0; border-radius: clamp(16px, 4.5vw, 22px); background: var(--key); color: var(--text); font-family: var(--ui); font-weight: 400; font-size: clamp(22px, 4.2dvh, 34px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; padding: 0; transition: background .08s, transform .06s; }
+.k small { font-size: clamp(8px, 1.2dvh, 10px); font-weight: 500; color: var(--label); line-height: 1; letter-spacing: .02em; }
+.k.op { color: var(--or); }
+.k.op small { color: #8A5A2E; }
+.k.eq { background: var(--eq); color: #fff; }
+.k.eq small { color: #FFE0C4; }
+.k.top { height: clamp(30px, 4.8dvh, 46px); align-self: end; font-size: clamp(17px, 2.8dvh, 22px); }
+.keys .row0 { display: contents; }
+.k svg { width: 1.05em; height: 1.05em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.k.down, .k:active { background: var(--key-hi); transform: scale(.95); }
+.k.eq.down, .k.eq:active { background: var(--eq-hi); }
+.k.cool { opacity: .4; }
+.k.blink { animation: blink .5s ease-in-out infinite alternate; }
+@keyframes blink { to { box-shadow: 0 0 0 2px var(--or), 0 0 18px rgba(255,138,31,.7); } }
+.k:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+body.nolabels .k small { display: none; }
+.help { position: fixed; inset: 0; z-index: 8; background: #000; overflow-y: auto; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); }
+.help .in { width: min(460px, 100%); margin: 0 auto; }
+.help h2 { font-size: 22px; font-weight: 500; margin: 14px 0 6px; }
+.help p { color: var(--muted); line-height: 1.5; margin: 6px 0 14px; }
+.help dl { display: grid; grid-template-columns: 52px 1fr; gap: 8px 12px; margin: 0; }
+.help dt { font-size: 22px; color: var(--or); text-align: center; background: var(--key); border-radius: 12px; padding: 6px 0; }
+.help dt.d { color: var(--text); }
+.help dd { margin: 0; align-self: center; line-height: 1.4; color: #CFCFCF; }
+.help .close { margin: 22px 0 8px; width: 100%; height: 52px; border: 0; border-radius: 18px; background: var(--eq); color: #fff; font-family: var(--ui); font-size: 18px; cursor: pointer; }
+canvas#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+@media (max-width: 360px) { .tab { font-size: 18px; } .tabs { gap: 14px; padding-left: 8px; } }
+@media (max-height: 640px) { .k small { display: none; } .tabs { padding-top: 0; } .tab { font-size: 18px; } }
+@media (min-aspect-ratio: 4/3) and (max-height: 520px) { .app { width: min(920px, 100%); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; column-gap: 18px; } .tabs { grid-column: 1 / -1; } .keys { grid-auto-rows: clamp(30px, 11dvh, 56px); } .k.top { height: clamp(26px, 8dvh, 40px); } }
+@media (prefers-reduced-motion: reduce) { .k { transition: none; } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Inter:wght@400;500;600&display=swap">
+
+<div class="app">
+  <div class="tabs">
+    <button class="tab on">Каль<b>К</b>улятор</button>
+    <button class="tab" id="helpTab">Как играть</button>
+    <button class="dots" id="dots" aria-label="Подписи на кнопках">⋮</button>
+  </div>
+  <div class="display">
+    <canvas id="lcd" width="320" height="140" aria-label="Поле боя"></canvas>
+    <div class="expr" id="expr"><span></span></div>
+    <div class="num" id="num">0</div>
+  </div>
+  <div class="keys" id="keys"></div>
+</div>
+<div class="help" id="help" hidden><div class="in">
+  <h2>Каль<b style="color:var(--or);font-weight:500">К</b>улятор</h2>
+  <p>Единичка защищает калькулятор от цифр. Каждая кнопка — действие. Удары подряд растят множитель, а число на экране — твои очки.</p>
+  <dl id="helpList"></dl>
+  <p>Секретные комбо, например: <b>) / / /</b> залп, <b>8 ) /</b> снайпер, <b>1 9</b> прыжок с топором. Остальные ищи сам.</p>
+  <button class="close" id="helpClose">Играть</button>
+</div></div>
+<canvas id="fx"></canvas>
+
+<script>
+'use strict';
+// ---------- кнопки: раскладка как у настоящего калькулятора ----------
+const SVG_BACK = '<svg viewBox="0 0 24 24"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>';
+const SVG_SWAP = '<svg viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="10" rx="2"/><rect x="11" y="5" width="10" height="10" rx="2"/></svg>';
+// [код действия, что на кнопке, подпись, классы]
+const KEYS = [
+  ['(', '(', 'ритуал', 'op top'], [')', ')', 'лук', 'op top'], ['±', '±', 'отражение', 'op top'], ['?', '?', 'как играть', 'op top'],
+  ['CE', 'AC', 'отмена', 'op'], ['←', SVG_BACK, 'отскок', 'op'], ['%', '%', 'проклятие', 'op'], ['/', '÷', 'стрела', 'op'],
+  ['7', '7', 'коса'], ['8', '8', 'бинокль'], ['9', '9', 'топор'], ['×', '×', 'сокровище', 'op'],
+  ['4', '4', 'посох'], ['5', '5', 'змея'], ['6', '6', 'вихрь'], ['−', '−', 'вычесть', 'op'],
+  ['1', '1', 'прыжок'], ['2', '2', 'утка'], ['3', '3', 'огонь'], ['+', '+', 'лечение', 'op'],
+  ['C', SVG_SWAP, 'пауза', 'op'], ['0', '0', 'шарик'], ['.', ',', 'заряд'], ['=', '=', 'финишер', 'eq'],
+];
+const keyEls = {};
+const kc = document.getElementById('keys');
+for (const [k, face, label, cls] of KEYS) {
+  const b = document.createElement('button');
+  b.className = 'k' + (cls ? ' ' + cls : ''); b.innerHTML = face + '<small>' + label + '</small>';
+  b.setAttribute('aria-label', label);
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); if (k === '?') openHelp(); else press(k); });
+  kc.appendChild(b); keyEls[k] = b;
+}
+// справка из той же таблицы кнопок
+document.getElementById('helpList').innerHTML = KEYS.filter((x) => x[0] !== '?').map(([k, face, label, cls]) => '<dt class="' + (cls && cls.includes('op') ? '' : 'd') + '">' + face + '</dt><dd>' + ({
+  '(': 'ритуал: набери до 6 кнопок и жми = — сработают разом с двойной силой', ')': 'натянуть лук, потом ÷ стреляет', '±': 'отражение: отбивает «?» босса и врагов',
+  'CE': 'отменить посох, заряд и ритуал', '←': 'отскок назад, на миг неуязвим', '%': 'проклятие: врагам −50%, боссу −10%', '/': 'стрела (с натянутым луком — сильная)',
+  '7': 'коса: удар по кругу', '8': 'бинокль: видно невидимок и спрятанные сундуки, урон ×1.5', '9': 'топор; в прыжке — удар с неба', '×': 'забрать сокровище',
+  '4': 'посох: следующая кнопка становится магией', '5': 'змея-союзник с ядом', '6': 'вихрь стягивает врагов', '−': 'вычесть: враг теряет своё же число',
+  '1': 'прыжок', '2': 'утка носит сокровища и клюёт', '3': 'огонь; с двумя зарядами — метеоры', '+': 'лечение',
+  'C': 'пауза', '0': 'шарик-щит на один удар', '.': 'заряд магии для 3, 6, 7', '=': 'финишер: тратит цепь ударов на мощный удар по всем',
+}[k] || label) + '</dd>').join('');
+function openHelp() { document.getElementById('help').hidden = false; if (S && S.state === 'play') S.paused = true; }
+document.getElementById('helpTab').onclick = openHelp;
+document.getElementById('helpClose').onclick = () => { document.getElementById('help').hidden = true; if (S) S.paused = false; };
+document.getElementById('dots').onclick = () => document.body.classList.toggle('nolabels');
+const KEYMAP = { '*': '×', 'x': '×', '-': '−', 'Backspace': '←', 'Delete': 'CE', 'Escape': 'C', 'Enter': '=', '=': '=', '\\': '±', 'n': '±' };
+addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  let k = KEYMAP[e.key] || e.key;
+  if (k === ',') k = '.';
+  if (keyEls[k]) { e.preventDefault(); press(k); keyEls[k].classList.add('down'); setTimeout(() => keyEls[k].classList.remove('down'), 90); }
+});
+
+// ---------- звук: писк калькулятора и удары, синтезом ----------
+let AC = null;
+function beep(f, d, type, vol, slide) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+    g.gain.setValueAtTime(vol || .05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d);
+  } catch (e) { /* без звука */ }
+}
+
+// ---------- ЖК-экран ----------
+const lcd = document.getElementById('lcd'), g = lcd.getContext('2d');
+const W = 320, H = 140, GROUND = 122, HX = 46;
+const INK = '#EDEDED', GHOST = 'rgba(237,237,237,.06)', BGC = '#000000';
+// семисегментные цифры: a b c d e f g
+const SEG = { '0': 'abcdef', '1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc', '5': 'afgcd', '6': 'afgedc', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg', '-': 'g', 'E': 'afged', 'r': 'eg', 'o': 'cdeg' };
+function seg7(ch, x, y, w, h, t, col, ghost) {
+  const on = SEG[ch] || '', hh = (h - t) / 2;
+  const R = { a: [x + t, y, w - 2 * t, t], b: [x + w - t, y + t, t, hh - t], c: [x + w - t, y + hh + t, t, hh - t], d: [x + t, y + h - t, w - 2 * t, t], e: [x, y + hh + t, t, hh - t], f: [x, y + t, t, hh - t], g: [x + t, y + hh, w - 2 * t, t] };
+  for (const s in R) {
+    if (on.includes(s)) { g.fillStyle = col; g.fillRect(...R[s].map(Math.round)); }
+    else if (ghost) { g.fillStyle = GHOST; g.fillRect(...R[s].map(Math.round)); }
+  }
+}
+function segNum(str, x, y, w, h, t, gap, col) { for (let i = 0; i < str.length; i++) seg7(str[i], x + i * (w + gap), y, w, h, t, col, true); }
+function px(text, x, y, size, col, align) { g.font = '600 ' + size + 'px ' + 'Pixelify Sans, monospace'; g.fillStyle = col || INK; g.textAlign = align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(text, x, y); }
+
+// ---------- эффекты за пределами экрана ----------
+const fx = document.getElementById('fx'), fg = fx.getContext('2d');
+let fxParts = [], cracks = [];
+function fxResize() { const d = devicePixelRatio || 1; fx.width = innerWidth * d; fx.height = innerHeight * d; fg.setTransform(d, 0, 0, d, 0, 0); }
+addEventListener('resize', fxResize); fxResize();
+function toPage(x, y) { const r = lcd.getBoundingClientRect(), k = Math.min(r.width / W, r.height / H), ox = r.left + (r.width - W * k) / 2, oy = r.bottom - H * k; return [ox + x * k, oy + y * k]; }
+function burst(x, y, color, n, power, size) {
+  const [X, Y] = toPage(x, y);
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = (Math.random() * .7 + .3) * power; fxParts.push({ x: X, y: Y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - power * .3, life: 1, col: color, sz: (size || 3) * (Math.random() * .6 + .7) }); }
+}
+function crack(x, y) {
+  const [X, Y] = toPage(x, y), lines = [];
+  for (let i = 0; i < 7; i++) { let a = Math.random() * Math.PI * 2, px0 = X, py0 = Y; const seg = [[px0, py0]]; for (let j = 0; j < 6; j++) { a += (Math.random() - .5) * .9; px0 += Math.cos(a) * (20 + Math.random() * 30); py0 += Math.sin(a) * (20 + Math.random() * 30); seg.push([px0, py0]); } lines.push(seg); }
+  cracks.push({ lines, life: 2.2 });
+}
+
+// ---------- состояние игры ----------
+let S;
+function reset() {
+  document.querySelectorAll('.k.blink').forEach((b) => b.classList.remove('blink'));
+  S = {
+    t: 0, score: 0, chain: 0, lastHit: -9, wave: 0, waveT: 0, spawnQ: [], state: 'intro', introT: 0,
+    hero: { y: 0, vy: 0, hp: 4, inv: 0, bow: 0, shield: 0, staff: false, charge: 0, reflect: 0, swing: 0, swingK: '', x: HX, healCd: 0, curseCd: 0, duckCd: 0 },
+    hints: S && S.hints ? S.hints : {}, hint: null,
+    enemies: [], proj: [], allies: [], treasure: [], whirls: [], floats: [], dust: [], banner: null, ritual: null, buf: [], shake: 0, flash: 0, paused: false,
+  };
+  nextWave();
+}
+const WAVES = [
+  { list: [2, 3, 7, 2, 3], gap: 1.9 },
+  { list: [7, 2, 4, 3, 7, 5, 2], gap: 1.6 },
+  { list: [4, 7, 'h2', 3, 'h7', 6, 'h4', 2, 7], gap: 1.4 },
+  { boss: 404 },
+];
+function nextWave() {
+  S.wave++; const w = WAVES[S.wave - 1];
+  if (!w) { S.state = 'win'; return; }
+  S.waveT = 0; S.spawnQ = [];
+  if (w.boss) { S.spawnQ.push({ t: 2.2, boss: true }); banner('БОСС 404', 'страница не найдена'); beep(110, .6, 'sawtooth', .07, 55); }
+  else { w.list.forEach((d, i) => S.spawnQ.push({ t: 1.6 + i * w.gap, d })); banner('ВОЛНА ' + S.wave, ''); }
+}
+function spawn(s) {
+  if (s.boss) { S.enemies.push({ boss: true, digit: '404', x: 280, y: 0, hp: 420, max: 420, speed: 6, hidden: true, rev: 0, burn: 0, poison: 0, atk: 2.5, tp: 6, w: 54, h: 40 }); return; }
+  const hidden = typeof s.d === 'string', d = hidden ? +s.d.slice(1) : s.d;
+  const hp = 6 + d * 2, speed = d === 7 ? 30 : d === 4 ? 12 : d === 6 ? 15 : 20;
+  S.enemies.push({ digit: String(d), x: W + 10, y: 0, hp, max: hp, speed, hidden, rev: 0, burn: 0, poison: 0, w: 13, h: 22, kb: 0 });
+}
+function banner(a, b) { S.banner = { a, b, t: 1.8 }; }
+// подсказка показывается один раз за игру: текст внизу экрана и мигающая кнопка, пока её не нажмут (или 6 с)
+function hint(id, text, key) {
+  if (S.hints[id]) return; S.hints[id] = 1;
+  if (S.hint && S.hint.key && keyEls[S.hint.key]) keyEls[S.hint.key].classList.remove('blink');
+  S.hint = { text, key, t: 6 };
+  if (key && keyEls[key]) keyEls[key].classList.add('blink');
+  beep(1760, .05, 'square', .03);
+}
+function hintDone(k) { if (S.hint && S.hint.key === k) { keyEls[k].classList.remove('blink'); S.hint.t = Math.min(S.hint.t, .8); } }
+
+// ---------- урон и очки ----------
+function mult() { return 1 + Math.min(40, S.chain) * .1; }
+function hit(e, dmg, kind) {
+  if (!e || e.hp <= 0) return;
+  let d = dmg;
+  if (e.hidden && e.rev <= 0) d *= .3;                    // не видишь — бьёшь вслепую
+  else if (e.rev > 0) d *= 1.5;                           // бинокль показал слабое место
+  d = Math.max(1, Math.round(d));
+  e.hp -= d; e.flash = .12;
+  if (S.t - S.lastHit < 2.4) S.chain++; else S.chain = 1;
+  S.lastHit = S.t;
+  const pts = Math.round(d * 10 * mult()); S.score += pts;
+  S.floats.push({ x: e.x, y: GROUND - e.h - 8 - (e.boss ? 18 : 0), txt: String(d), t: .8 });
+  const col = kind === 'fire' ? '#FF7A2E' : kind === 'magic' ? '#6FE3FF' : kind === 'poison' ? '#9BFF5A' : '#F4F0E6';
+  if (d >= 8) burst(e.x, GROUND - e.h / 2, col, Math.min(28, d), 4 + d / 4, 3);
+  if (e.hp <= 0) kill(e);
+}
+function kill(e) {
+  S.score += Math.round((e.boss ? 5000 : 100) * mult());
+  burst(e.x, GROUND - e.h / 2, '#F4F0E6', e.boss ? 120 : 18, e.boss ? 14 : 6, e.boss ? 5 : 3);
+  for (let i = 0; i < (e.boss ? 40 : 8); i++) S.dust.push({ x: e.x + (Math.random() - .5) * e.w, y: GROUND - Math.random() * e.h, vx: (Math.random() - .5) * 90, vy: -Math.random() * 120, t: 1 });
+  beep(e.boss ? 80 : 300, e.boss ? .9 : .12, 'square', .06, e.boss ? 30 : 120);
+  if (e.boss) { crack(e.x, GROUND - 30); crack(e.x - 40, GROUND - 50); S.shake = 1; S.flash = 1; setTimeout(() => { S.state = 'win'; }, 1600); }
+  if (Math.random() < .25) S.treasure.push({ x: e.x, hidden: Math.random() < .5, ttl: 9 });
+}
+function nearest(range, both) {
+  let best = null, bd = 1e9;
+  for (const e of S.enemies) { if (e.hp <= 0) continue; const dx = e.x - S.hero.x; if (!both && dx < -6) continue; if (Math.abs(dx) < bd && Math.abs(dx) <= range) { bd = Math.abs(dx); best = e; } }
+  return best;
+}
+function airborne() { return S.hero.y < -6; }
+
+// ---------- комбо: последние нажатия ----------
+const COMBOS = [
+  { seq: ')///', name: 'ЗАЛП', bonus: 300 },
+  { seq: '8)/', name: 'СНАЙПЕР', bonus: 200 },
+  { seq: '..3', name: 'ОГНЕННЫЙ ШТОРМ', bonus: 300 },
+  { seq: '999', name: 'ДРОВОСЕК', bonus: 250 },
+  { seq: '19', name: 'ПРЫЖОК С ТОПОРОМ', bonus: 150 },
+  { seq: '55', name: 'КЛУБОК ЗМЕЙ', bonus: 150 },
+  { seq: '8×', name: 'КЛАДОИСКАТЕЛЬ', bonus: 200 },
+  { seq: '40', name: 'СФЕРА', bonus: 150 },
+  { seq: '±=', name: 'ЗЕРКАЛЬНЫЙ ФИНАЛ', bonus: 400 },
+  { seq: '6.3', name: 'ОГНЕННЫЙ ВИХРЬ', bonus: 300 },
+];
+function checkCombo() {
+  const s = S.buf.map((b) => b.k).join('');
+  for (const c of COMBOS) if (s.endsWith(c.seq)) {
+    S.score += Math.round(c.bonus * mult()); S.chain += 2; banner(c.name, '+' + Math.round(c.bonus * mult()));
+    burst(S.hero.x + 20, GROUND - 40, '#FFD36B', 30, 9, 3); beep(880, .08, 'square', .05); setTimeout(() => beep(1320, .12, 'square', .05), 80);
+    S.buf = []; return c.seq;
+  }
+  return null;
+}
+
+// ---------- действия кнопок ----------
+function press(k) {
+  if (!S) return;
+  if (S.state === 'intro') { S.state = 'play'; beep(660, .06); return; }
+  if (S.state === 'dead' || S.state === 'win') { if (k === 'C' || k === '=') { reset(); S.state = 'play'; } return; }
+  if (k === 'C') { S.paused = !S.paused; beep(440, .05); return; }
+  if (S.paused) return;
+  beep(1200 + Math.random() * 300, .03, 'square', .025);
+  const now = S.t;
+  if (S.ritual && k !== '=' && k !== 'CE' && k !== '(') {              // внутри ритуала кнопки копятся, а не срабатывают
+    S.ritual.push(k); S.ritualT = 3; beep(500 + S.ritual.length * 90, .05, 'triangle', .05);
+    if (S.ritual.length >= 6) act('=', 1);                              // 6 кнопок — ритуал срабатывает сам
+    return;
+  }
+  hintDone(k);
+  S.buf.push({ k, t: now }); S.buf = S.buf.filter((b) => now - b.t < 2.2).slice(-6);
+  act(k, 1);
+  checkCombo();
+}
+function staffUse() { const h = S.hero; if (h.staff) { h.staff = false; return true; } return false; }
+function act(k, power) {
+  const h = S.hero, P = power || 1;
+  switch (k) {
+    case '1': if (!airborne()) { h.vy = -230; h.inv = Math.max(h.inv, .45); beep(520, .1, 'square', .04, 900); } break;
+    case '9': {                                                         // топор; в прыжке — удар с неба по площади
+      const magic = staffUse();
+      h.swing = .22; h.swingK = '9';
+      if (magic) { S.proj.push({ x: h.x + 8, y: GROUND - 14, vx: 200, type: 'axe', dmg: 10 * P, back: false, spin: 0 }); break; }
+      if (airborne()) { h.vy = 420; h.slam = 10 * P; break; }
+      const e = nearest(34); if (e) { hit(e, 8 * P, 'axe'); e.kb = 18; S.shake = .25; beep(160, .1, 'sawtooth', .06, 80); }
+      break;
+    }
+    case ')': h.bow = 1.8; h.swingK = ')'; hint('bow', 'ЛУК НАТЯНУТ — ЖМИ / ЧТОБЫ СТРЕЛЯТЬ', '/'); beep(700, .06, 'triangle', .04, 400); break;
+    case '/': {
+      const snipe = S.buf.map((b) => b.k).join('').endsWith('8)/');
+      if (h.bow > 0) { S.proj.push({ x: h.x + 10, y: GROUND - 15 + (airborne() ? h.y : 0), vx: 260, type: 'arrow', dmg: (snipe ? 12 : 4) * P }); h.bow = Math.max(h.bow, .7); beep(1500, .05, 'square', .03, 700); }
+      else { S.proj.push({ x: h.x + 8, y: GROUND - 14, vx: 140, type: 'arrow', dmg: 1, weak: true }); }
+      break;
+    }
+    case '8': for (const e of S.enemies) e.rev = 5; for (const t of S.treasure) t.seen = 5; beep(300, .2, 'sine', .05, 900); break;
+    case '×': {
+      const t = S.treasure.find((x) => !x.hidden || x.seen > 0);
+      if (t) { S.treasure.splice(S.treasure.indexOf(t), 1); const p = Math.round(250 * mult()); S.score += p; S.chain += 3; S.floats.push({ x: t.x, y: GROUND - 26, txt: '+' + p, t: 1 }); burst(t.x, GROUND - 8, '#FFD36B', 24, 7, 3); beep(990, .07); setTimeout(() => beep(1480, .1), 70); }
+      else S.floats.push({ x: h.x + 20, y: GROUND - 30, txt: 'ПУСТО', t: .6 });
+      break;
+    }
+    case '5': { const big = staffUse(); S.allies.push({ type: 'snake', x: h.x + 6, dmg: (big ? 12 : 3) * P, big, t: 0 }); beep(200, .15, 'sawtooth', .03, 120); break; }
+    case '0': { if (staffUse()) { h.shield = 2; for (const e of S.enemies) if (Math.abs(e.x - h.x) < 70) { hit(e, 6 * P, 'magic'); e.kb = 40; } burst(h.x, GROUND - 16, '#6FE3FF', 30, 8); } else h.shield = 1; beep(880, .12, 'sine', .05, 440); break; }
+    case '3': {
+      const ch = h.charge; h.charge = 0;
+      if (staffUse() || ch >= 2) {                                      // метеоры по всем
+        for (const e of S.enemies) if (e.hp > 0) setTimeout(() => { hit(e, (8 + ch * 4) * P, 'fire'); e.burn = 3; burst(e.x, GROUND - 10, '#FF7A2E', 18, 8, 4); }, 120 + Math.random() * 400);
+        S.shake = .6; beep(90, .5, 'sawtooth', .07, 40);
+      } else { S.proj.push({ x: h.x + 10, y: GROUND - 16, vx: 170, type: 'fire', dmg: (6 + ch * 5) * P }); beep(240, .2, 'sawtooth', .05, 120); }
+      break;
+    }
+    case '6': { const ch = h.charge; h.charge = 0; S.whirls.push({ x: h.x + 74, t: 1.7, power: (1 + ch) * P * (staffUse() ? 2 : 1), fire: S.buf.map((b) => b.k).join('').endsWith('6.') }); beep(160, .5, 'triangle', .05, 600); break; }
+    case '7': { const ch = h.charge; h.charge = 0; h.swing = .3; h.swingK = '7'; for (const e of S.enemies) if (Math.abs(e.x - h.x) < 52) { hit(e, (5 + ch * 3) * P * (staffUse() ? 2 : 1), 'axe'); e.kb = 16; } beep(420, .12, 'sawtooth', .04, 200); break; }
+    case '2': if (h.duckCd <= 0) { S.allies.push({ type: 'duck', x: h.x, y: GROUND - 40, t: 0, pecks: 3 }); h.duckCd = 3; beep(600, .08, 'square', .04, 900); } break;
+    case '4': h.staff = true; beep(1000, .15, 'sine', .04, 1600); break;
+    case '.': h.charge = Math.min(3, h.charge + 1); beep(800 + h.charge * 200, .06, 'sine', .04); break;
+    case '+': if (h.healCd <= 0 && h.hp < 4) { h.hp++; h.healCd = 8; burst(h.x, GROUND - 14, '#9BFF5A', 14, 4); beep(660, .1, 'sine', .05, 990); } break;
+    case '−': { const e = nearest(140); if (e) { hit(e, (e.boss ? 4 : +e.digit) * P, 'magic'); S.floats.push({ x: e.x, y: GROUND - e.h - 20, txt: '−' + (e.boss ? 4 : e.digit), t: .8 }); } break; }
+    case '±': h.reflect = 2.5; beep(1400, .1, 'triangle', .04, 700); break;
+    case '%': if (h.curseCd <= 0) { h.curseCd = 10; for (const e of S.enemies) if (e.hp > 0) hit(e, e.boss ? e.max * .1 : e.hp * .5, 'magic'); burst(200, 70, '#B88CFF', 40, 8); beep(140, .4, 'sine', .06, 70); } break;
+    case '←': h.x = Math.max(14, h.x - 22); h.inv = Math.max(h.inv, .3); break;
+    case 'CE': h.staff = false; h.charge = 0; S.ritual = null; S.buf = []; break;
+    case '(': S.ritual = []; S.ritualT = 3; hint('ritual', 'РИТУАЛ: НАБЕРИ ДО 6 КНОПОК И ЖМИ =', '='); beep(330, .2, 'triangle', .05, 660); break;
+    case '=': {
+      if (S.ritual) {                                                   // ритуал: всё накопленное разом и с двойной силой
+        const list = S.ritual; S.ritual = null;
+        if (list.length) { banner('РИТУАЛ ×' + list.length, 'двойная сила'); S.flash = .6; list.forEach((x, i) => setTimeout(() => act(x, 2), i * 110)); }
+        break;
+      }
+      if (S.chain >= 3) {                                               // финишер тратит цепочку: чем длиннее, тем сильнее
+        const d = S.chain * 2 * P; for (const e of S.enemies) if (e.hp > 0) hit(e, d, 'magic');
+        if (h.reflect > 0) for (const e of S.enemies) if (e.hp > 0) hit(e, d, 'magic');
+        S.flash = 1; S.shake = .8; burst(160, 80, '#FFFFFF', 60, 12); if (d > 40) crack(160, 80);
+        beep(60, .7, 'sawtooth', .08, 30); S.chain = 0;
+      }
+      break;
+    }
+  }
+}
+
+// ---------- цикл ----------
+let last = performance.now(), exprLast = null, numLast = null;
+const numEl = document.getElementById('num');
+const exprEl = document.querySelector('#expr span');
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (S.state === 'play' && !S.paused) update(dt);
+  else if (S.state === 'intro') S.introT += dt;
+  if (S.banner) { S.banner.t -= dt; if (S.banner.t <= 0) S.banner = null; }
+  draw(); drawFx(dt);
+  const ex = S.ritual ? '(' + S.ritual.join(' ') : S.buf.map((b) => b.k).join(' ');
+  if (ex !== exprLast) { exprLast = ex; exprEl.textContent = ex; }
+  if (S.score !== numLast) { numLast = S.score; numEl.textContent = S.score.toLocaleString('ru-RU'); }
+}
+function update(dt) {
+  S.t += dt; S.waveT += dt;
+  const h = S.hero;
+  for (const s of S.spawnQ) if (!s.done && S.waveT >= s.t) { s.done = true; spawn(s); }
+  if (S.spawnQ.every((s) => s.done) && S.enemies.every((e) => e.hp <= 0) && S.state === 'play') { S.enemies = []; nextWave(); }
+  // герой
+  h.vy += 900 * dt; h.y = Math.min(0, h.y + h.vy * dt);
+  if (h.y === 0 && h.slam) {                                            // приземлился топором
+    for (const e of S.enemies) if (e.hp > 0 && Math.abs(e.x - h.x) < 46) { hit(e, h.slam * 1.6, 'axe'); e.kb = 30; }
+    S.shake = .7; burst(h.x + 10, GROUND, '#F4F0E6', 30, 8); for (let i = 0; i < 14; i++) S.dust.push({ x: h.x + (Math.random() - .5) * 60, y: GROUND, vx: (Math.random() - .5) * 140, vy: -Math.random() * 80, t: .7 });
+    beep(70, .3, 'sawtooth', .08, 35); h.slam = 0;
+  }
+  if (h.y === 0) h.vy = 0;
+  if (S.ritual) { S.ritualT -= dt; if (S.ritualT <= 0) act('=', 1); }   // забыл про ритуал — он сработает сам
+  for (const k of ['inv', 'bow', 'reflect', 'swing', 'healCd', 'curseCd', 'duckCd']) h[k] = Math.max(0, h[k] - dt);
+  if (h.x < HX) h.x = Math.min(HX, h.x + 20 * dt);
+  if (S.t - S.lastHit > 2.4 && S.chain > 0) S.chain = 0;
+  // враги
+  for (const e of S.enemies) {
+    if (e.hp <= 0) continue;
+    e.rev = Math.max(0, e.rev - dt); e.flash = Math.max(0, (e.flash || 0) - dt);
+    if (e.burn > 0) { e.burn -= dt; e.bt = (e.bt || 0) + dt; if (e.bt > .5) { e.bt = 0; hit(e, 1, 'fire'); } }
+    if (e.poison > 0) { e.poison -= dt; e.pt = (e.pt || 0) + dt; if (e.pt > .7) { e.pt = 0; hit(e, 1, 'poison'); } }
+    if (e.kb > 0) { e.x += e.kb * 6 * dt; e.kb = Math.max(0, e.kb - 80 * dt); continue; }
+    if (e.boss) {
+      e.x = Math.max(200, e.x - e.speed * dt);
+      e.atk -= dt; e.tp -= dt;
+      if (e.atk <= .7 && !e.wind) { e.wind = 1; hint('bossatk', 'ЛЕТИТ ? — ПРЫГАЙ 1 ИЛИ ОТРАЗИ ±', '±'); beep(400, .2, 'triangle', .04, 700); }
+      if (e.atk <= 0) { e.atk = 1.6 + Math.random(); e.wind = 0; S.proj.push({ x: e.x - 30, y: GROUND - 18 - Math.random() * 20, vx: -110, type: 'boss', dmg: 1 }); beep(180, .08, 'square', .03); }
+      if (e.tp <= 0) { e.tp = 5 + Math.random() * 3; e.x = 210 + Math.random() * 80; burst(e.x, GROUND - 20, '#B88CFF', 20, 5); }
+      continue;
+    }
+    e.x -= e.speed * dt;
+    if (e.x - h.x < 10 && e.x - h.x > -8 && !airborne()) {
+      if (h.inv > 0) continue;
+      if (h.reflect > 0) { e.kb = 40; hit(e, 6, 'magic'); h.reflect = 0; continue; }
+      if (h.shield) { h.shield = 0; e.kb = 45; burst(h.x, GROUND - 14, '#6FE3FF', 18, 6); beep(1200, .1, 'sine', .05, 300); continue; }
+      h.hp--; h.inv = 1.2; e.kb = 35; hint('hurt', 'ТЕБЯ ЗАДЕЛИ. + ЛЕЧИТ, 0 — ЩИТ', '+'); S.chain = 0; S.shake = .5; burst(h.x, GROUND - 12, '#FF5A4A', 20, 6); beep(110, .25, 'square', .07, 60);
+      if (h.hp <= 0) { S.state = 'dead'; crack(h.x, GROUND - 20); }
+    }
+    if (e.x < -20) e.hp = 0;
+  }
+  // снаряды
+  for (const p of S.proj) {
+    p.x += p.vx * dt;
+    if (p.type === 'axe') { p.spin += dt * 20; if (!p.back && p.x > W - 20) { p.back = true; p.vx = -220; } if (p.back && p.x < h.x) p.dead = true; }
+    if (p.type === 'boss') {
+      if (h.reflect > 0 && p.x - h.x < 18) { p.type = 'refl'; p.vx = 240; h.reflect = 0; burst(h.x + 12, p.y, '#B88CFF', 16, 6); beep(1600, .06, 'square', .04); continue; }
+      if (p.x - h.x < 6 && !airborne() && h.inv <= 0) { p.dead = true; if (h.shield) { h.shield = 0; } else { h.hp--; h.inv = 1; S.chain = 0; S.shake = .4; if (h.hp <= 0) { S.state = 'dead'; crack(h.x, GROUND - 20); } } }
+      if (p.x < -10) p.dead = true; continue;
+    }
+    for (const e of S.enemies) {
+      if (e.hp <= 0 || p.dead) continue;
+      if (Math.abs(e.x - p.x) < (e.boss ? 26 : 8)) {
+        hit(e, p.type === 'refl' ? 25 : p.dmg, p.type === 'fire' ? 'fire' : p.type === 'axe' ? 'magic' : 'arrow');
+        if (p.type === 'fire') e.burn = 3;
+        if (p.type !== 'axe') p.dead = true;
+      }
+    }
+    if (p.x > W + 10) p.dead = true;
+  }
+  S.proj = S.proj.filter((p) => !p.dead);
+  // союзники
+  for (const a of S.allies) {
+    a.t += dt;
+    if (a.type === 'snake') {
+      a.x += (a.big ? 70 : 90) * dt;
+      const e = S.enemies.find((e) => e.hp > 0 && Math.abs(e.x - a.x) < 8);
+      if (e) { hit(e, a.dmg, 'poison'); e.poison = 4; a.dead = true; burst(a.x, GROUND - 4, '#9BFF5A', 10, 4); }
+      if (a.x > W) a.dead = true;
+    } else {                                                            // утка: несёт сокровище герою или клюёт врага
+      const t = S.treasure[0];
+      const tx = t ? t.x : (S.enemies.find((e) => e.hp > 0) || { x: 200 }).x;
+      a.x += Math.sign(tx - a.x) * Math.min(Math.abs(tx - a.x), 140 * dt);
+      a.y = GROUND - 44 + Math.sin(a.t * 10) * 3;
+      if (Math.abs(tx - a.x) < 4) {
+        if (t) { S.treasure.shift(); const p = Math.round(250 * mult()); S.score += p; S.floats.push({ x: t.x, y: GROUND - 30, txt: '+' + p, t: 1 }); beep(990, .07); a.dead = true; }
+        else { a.pk = (a.pk || 0) + dt; if (a.pk > .35) { a.pk = 0; const e = S.enemies.find((e) => e.hp > 0 && Math.abs(e.x - a.x) < 12); if (e) hit(e, 3, 'arrow'); if (--a.pecks <= 0) a.dead = true; } }
+      }
+      if (a.t > 6) a.dead = true;
+    }
+  }
+  S.allies = S.allies.filter((a) => !a.dead);
+  // вихри
+  for (const w of S.whirls) {
+    w.t -= dt;
+    for (const e of S.enemies) if (e.hp > 0 && Math.abs(e.x - w.x) < 64) { if (!e.boss) e.x += (w.x - e.x) * 2.5 * dt; w.acc = (w.acc || 0) + dt; }
+    w.tick = (w.tick || 0) + dt;
+    if (w.tick > .3) { w.tick = 0; for (const e of S.enemies) if (e.hp > 0 && Math.abs(e.x - w.x) < 30) { hit(e, 2 * w.power, w.fire ? 'fire' : 'magic'); if (w.fire) e.burn = 2; } }
+  }
+  S.whirls = S.whirls.filter((w) => w.t > 0);
+  // подсказки по ситуации
+  const onScreen = S.enemies.filter((e) => e.hp > 0 && e.x < W - 6);
+  if (onScreen.length) hint('first', 'ЦИФРА СКАЧЕТ К ТЕБЕ — БЕЙ ТОПОРОМ 9', '9');
+  if (onScreen.some((e) => e.hidden && !e.boss && e.rev <= 0)) hint('hidden', 'НЕВИДИМКА! ЖМИ 8 — БИНОКЛЬ', '8');
+  if (onScreen.some((e) => e.boss)) hint('boss', '404 НЕ ВИДЕН — СНАЧАЛА 8, ПОТОМ БЕЙ', '8');
+  if (S.treasure.some((t) => !t.hidden)) hint('chest', 'СУНДУК! ЖМИ × ЧТОБЫ ЗАБРАТЬ', '×');
+  else if (S.treasure.some((t) => t.hidden) && S.hints.chest) hint('chest2', 'СПРЯТАННЫЙ СУНДУК: 8, ПОТОМ ×', '8');
+  if (S.chain >= 6) hint('chain', 'ДЛИННАЯ ЦЕПЬ! = ВЫПУСТИТ ЕЁ РАЗОМ', '=');
+  if (S.hint) { S.hint.t -= dt; if (S.hint.t <= 0) { if (S.hint.key && keyEls[S.hint.key]) keyEls[S.hint.key].classList.remove('blink'); S.hint = null; } }
+  // сокровища появляются сами
+  if (Math.random() < dt / 9) S.treasure.push({ x: 90 + Math.random() * 180, hidden: Math.random() < .55, ttl: 9 });
+  for (const t of S.treasure) { t.ttl -= dt; t.seen = Math.max(0, (t.seen || 0) - dt); }
+  S.treasure = S.treasure.filter((t) => t.ttl > 0).slice(-3);
+  for (const f of S.floats) { f.t -= dt; f.y -= 18 * dt; }
+  S.floats = S.floats.filter((f) => f.t > 0);
+  for (const d of S.dust) { d.t -= dt; d.vy += 300 * dt; d.x += d.vx * dt; d.y = Math.min(GROUND, d.y + d.vy * dt); }
+  S.dust = S.dust.filter((d) => d.t > 0);
+  S.enemies = S.enemies.filter((e) => e.hp > 0);
+  S.shake = Math.max(0, S.shake - dt * 2); S.flash = Math.max(0, S.flash - dt * 2.5);
+}
+
+// ---------- отрисовка ЖК ----------
+function drawHero() {
+  const h = S.hero, x = Math.round(h.x), y = Math.round(GROUND + h.y);
+  if (h.inv > 0 && Math.floor(S.t * 20) % 2 && h.hp > 0) return;
+  // единичка без ног: стоит на земле и подпрыгивает, на приземлении приплющивается
+  const hop = h.y < 0 ? 0 : Math.max(0, Math.sin(S.t * 6)) * 3, sq = h.y === 0 && hop < .4 ? 1.12 : 1;
+  const bh = 22 / sq, by = y - bh - hop;
+  g.fillStyle = INK;
+  g.fillRect(x - 1, by, 5, bh);                                        // тело — сплошная палочка
+  g.fillRect(x - 4, by + 1, 3, 2); g.fillRect(x - 6, by + 3, 3, 2);    // флажок-носик единицы
+  g.fillRect(x - 3, by + bh - 2, 11, 2);                               // подставка
+  g.fillStyle = BGC; g.fillRect(x + 1, by + 4, 2, 2);            // глаз
+  g.fillStyle = INK;
+  // что в руках
+  if (h.bow > 0) { g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.arc(x + 6, y - 15, 7, -1.2, 1.2); g.stroke(); g.fillRect(x + 4, y - 15, 9, 1); }
+  else if (h.swing > 0 && h.swingK === '9') { g.save(); g.translate(x + 3, y - 14); g.rotate(-1.5 + (1 - h.swing / .22) * 2.6); g.fillRect(0, -1, 12, 2); g.fillRect(9, -4, 5, 7); g.restore(); }
+  else if (h.swing > 0 && h.swingK === '7') { g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.arc(x + 1, y - 13, 24, -2.6 + (1 - h.swing / .3) * 4.6, -1.8 + (1 - h.swing / .3) * 4.6); g.stroke(); }
+  if (h.staff) { g.fillRect(x - 12, y - 30, 2, 26); g.fillRect(x - 14, y - 33, 6, 4); }
+  if (h.shield) { g.strokeStyle = INK; g.lineWidth = h.shield > 1 ? 2 : 1; g.beginPath(); g.arc(x, y - 13, 17, 0, 7); g.stroke(); }
+  if (h.reflect > 0) { g.fillRect(x + 12, y - 28, 2, 24); g.fillRect(x + 14, y - 30, 2, 4); g.fillRect(x + 14, y - 6, 2, 4); }
+  for (let i = 0; i < h.charge; i++) g.fillRect(x - 6 + i * 5, y - 34, 3, 3);   // заряды над головой
+}
+function drawEnemy(e) {
+  const y = GROUND, vis = !e.hidden || e.rev > 0;
+  if (!vis && Math.random() < .85) { g.globalAlpha = .12; }
+  if (e.boss) {
+    const bx = Math.round(e.x - 30), by = y - 46 + Math.sin(S.t * 2) * 2;
+    if (!vis) g.globalAlpha = .1 + (Math.random() < .1 ? .5 : 0);
+    const wob = e.wind ? (Math.random() - .5) * 3 : 0;
+    segNum('404', bx + wob, by, 16, 34, 4, 4, e.flash > 0 ? 'rgba(237,237,237,.4)' : INK);
+    if (e.wind) { g.globalAlpha = 1; px('!', bx - 8, by + 14, 14, INK); }
+    g.fillStyle = BGC; g.fillRect(bx + 26, by + 8, 3, 3); g.fillRect(bx + 33, by + 8, 3, 3);
+    g.globalAlpha = 1;
+    g.fillStyle = INK; g.fillStyle = 'rgba(237,237,237,.2)'; g.fillRect(200, 34, 114, 4); g.fillStyle = INK; g.fillRect(200, 34, 114 * Math.max(0, e.hp) / e.max, 4);
+    px(vis ? '404 · НАЙДЕН' : '404 · НЕ НАЙДЕН (8)', 200, 31, 7, INK);
+    return;
+  }
+  // цифра скачет к герою: дуга прыжка, приплющивание на приземлении
+  const ph = (S.t * (e.speed / 9) + e.x * .05) % 1, air = Math.sin(ph * Math.PI), land = ph < .12 || ph > .9;
+  const hh = land ? 19 : 22, ww = land ? 15 : 13, x = Math.round(e.x - ww / 2), top = y - hh - air * 9;
+  seg7(e.digit, x, top, ww, hh, 3, e.flash > 0 ? 'rgba(237,237,237,.35)' : INK);
+  g.fillStyle = BGC; g.fillRect(x + 3, top + 5, 2, 2); g.fillRect(x + ww - 5, top + 5, 2, 2);   // злые глаза
+  g.fillStyle = INK; if (air > .5) g.fillRect(x + 2, y - 1, ww - 4, 1);                             // тень под прыжком
+  if (e.hp < e.max) { g.fillStyle = 'rgba(237,237,237,.2)'; g.fillRect(x, top - 5, 13, 2); g.fillStyle = INK; g.fillRect(x, top - 5, 13 * e.hp / e.max, 2); }
+  if (e.burn > 0 && Math.random() < .6) g.fillRect(x + Math.random() * 12, top - 2 - Math.random() * 6, 1, 2);
+  if (e.poison > 0) g.fillRect(x + 6, top - 9 + Math.sin(S.t * 6) * 2, 1, 1);
+  g.globalAlpha = 1;
+}
+function draw() {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = BGC; g.fillRect(0, 0, W, H);
+  // пиксельная сетка ЖК
+  const sh = S.shake * 4; g.setTransform(1, 0, 0, 1, (Math.random() - .5) * sh, (Math.random() - .5) * sh);
+  // верхняя строка: очки как у калькулятора
+  for (let i = 0; i < 4; i++) { g.fillStyle = i < S.hero.hp ? INK : 'rgba(237,237,237,.13)'; const x = 6 + i * 11; g.fillRect(x, 8, 3, 3); g.fillRect(x + 4, 8, 3, 3); g.fillRect(x, 11, 7, 3); g.fillRect(x + 1, 14, 5, 2); g.fillRect(x + 2, 16, 3, 1); }
+  px('ВОЛНА ' + Math.min(S.wave, 4) + (S.wave >= 4 ? ' · БОСС' : ''), 52, 15, 8);
+  if (S.chain > 1) px('×' + mult().toFixed(1) + '  цепь ' + S.chain, 6, 30, 8);
+  const icons = []; if (S.hero.staff) icons.push('ПОСОХ'); if (S.hero.charge) icons.push('ЗАРЯД ' + S.hero.charge); if (S.hero.bow > 0) icons.push('ЛУК'); if (S.hero.reflect > 0) icons.push('ОТРАЖЕНИЕ'); if (S.ritual) icons.push('РИТУАЛ: ' + (S.ritual.join(' ') || '…'));
+  px(icons.join('  '), 6, 42, 7);
+  // земля
+  g.fillStyle = INK; g.fillRect(0, GROUND, W, 1);
+  for (let x = (-S.t * 6) % 14; x < W; x += 14) g.fillRect(Math.round(x), GROUND + 4, 4, 1);
+  // сокровища
+  for (const t of S.treasure) {
+    if (t.hidden && !(t.seen > 0)) { g.fillStyle = 'rgba(237,237,237,.08)'; g.fillRect(t.x - 5, GROUND - 8, 10, 8); continue; }
+    g.fillStyle = INK; g.fillRect(t.x - 5, GROUND - 8, 10, 8); g.fillStyle = BGC; g.fillRect(t.x - 4, GROUND - 5, 8, 1); g.fillRect(t.x - 1, GROUND - 6, 2, 3);
+    if (Math.floor(S.t * 4) % 2) { g.fillStyle = INK; g.fillRect(t.x + 6, GROUND - 13, 1, 3); g.fillRect(t.x + 5, GROUND - 12, 3, 1); }
+    px('×', t.x - 2, GROUND - 12, 7);
+  }
+  for (const w of S.whirls) { g.strokeStyle = INK; g.lineWidth = 1; for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(w.x, GROUND - 6 - i * 9, 6 + i * 5, 2 + i, 0, S.t * 10 + i, S.t * 10 + i + 4.5); g.stroke(); } }
+  for (const e of S.enemies) if (e.hp > 0) drawEnemy(e);
+  for (const a of S.allies) {
+    g.fillStyle = INK;
+    if (a.type === 'snake') { const s = a.big ? 2 : 1; for (let i = 0; i < 6; i++) g.fillRect(a.x - i * 3 * s, GROUND - 3 * s - Math.abs(Math.sin(S.t * 12 + i)) * 2 * s, 3 * s, 2 * s); g.fillRect(a.x + 2, GROUND - 5 * s, 2, 2); }
+    else seg7('2', a.x - 5, a.y, 9, 13, 2, INK);
+  }
+  for (const p of S.proj) {
+    g.fillStyle = INK;
+    if (p.type === 'arrow') { g.fillRect(p.x - 8, p.y, 9, 1); g.fillRect(p.x, p.y - 1, 2, 3); g.fillRect(p.x - 9, p.y - 1, 2, 3); }
+    else if (p.type === 'fire') { const r = 3 + Math.random() * 2; g.fillRect(p.x - r, p.y - r / 2, r * 2, r); g.fillRect(p.x - r - 4 - Math.random() * 4, p.y - 1, 4, 2); }
+    else if (p.type === 'axe') { g.save(); g.translate(p.x, p.y); g.rotate(p.spin); g.fillRect(-6, -1, 12, 2); g.fillRect(3, -4, 4, 7); g.restore(); }
+    else px(p.type === 'refl' ? '!' : '?', p.x - 3, p.y + 4, 11);
+  }
+  drawHero();
+  for (const d of S.dust) { g.fillStyle = INK; g.fillRect(d.x, d.y, 2, 2); }
+  for (const f of S.floats) px(f.txt, f.x, f.y, 8, INK, 'center');
+  if (S.flash > 0) { g.fillStyle = 'rgba(237,237,237,' + S.flash * .5 + ')'; g.fillRect(0, 0, W, H); }
+  if (S.hint && S.state === 'play') { g.globalAlpha = Math.min(1, S.hint.t * 2); g.fillStyle = INK; g.fillRect(0, GROUND + 7, W, 13); px(S.hint.text, W / 2, GROUND + 17, 8, BGC, 'center'); g.globalAlpha = 1; }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (S.banner) { const a = Math.min(1, S.banner.t * 3); g.globalAlpha = a; px(S.banner.a, W / 2, 70, 16, INK, 'center'); if (S.banner.b) px(S.banner.b, W / 2, 84, 9, INK, 'center'); g.globalAlpha = 1; }
+  if (S.state === 'intro') { g.fillStyle = 'rgba(0,0,0,.9)'; g.fillRect(0, 0, W, H); segNum('0', 150, 30, 18, 32, 4, 0, INK); px('ЖМИ ЛЮБУЮ КНОПКУ', W / 2, 92, 11, INK, 'center'); px('единичка защищает калькулятор', W / 2, 108, 8, INK, 'center'); if (Math.floor(S.introT * 2) % 2) g.fillRect(172, 56, 3, 6); }
+  if (S.paused && S.state === 'play') { g.fillStyle = 'rgba(0,0,0,.8)'; g.fillRect(0, 0, W, H); px('ПАУЗА · C', W / 2, 84, 14, INK, 'center'); }
+  if (S.state === 'dead') { g.fillStyle = 'rgba(0,0,0,.85)'; g.fillRect(0, 0, W, H); segNum('Error', 105, 40, 14, 26, 3, 6, INK); px('очки ' + S.score + ' · C или = заново', W / 2, 98, 9, INK, 'center'); }
+  if (S.state === 'win') { g.fillStyle = 'rgba(0,0,0,.85)'; g.fillRect(0, 0, W, H); px('404 НАЙДЕН И УДАЛЁН', W / 2, 62, 14, INK, 'center'); segNum(String(S.score), W / 2 - String(S.score).length * 9, 72, 12, 22, 3, 6, INK); px('C или = — ещё раз', W / 2, 116, 8, INK, 'center'); }
+}
+function drawFx(dt) {
+  fg.clearRect(0, 0, innerWidth, innerHeight);
+  for (const p of fxParts) { p.life -= dt * 1.1; p.vy += 9 * dt * 60 * .1; p.x += p.vx; p.y += p.vy; fg.globalAlpha = Math.max(0, p.life); fg.fillStyle = p.col; fg.shadowColor = p.col; fg.shadowBlur = 10; fg.fillRect(p.x, p.y, p.sz, p.sz); }
+  fg.shadowBlur = 0; fg.globalAlpha = 1;
+  fxParts = fxParts.filter((p) => p.life > 0);
+  for (const c of cracks) {
+    c.life -= dt; fg.globalAlpha = Math.min(1, c.life);
+    fg.strokeStyle = 'rgba(240,244,248,.85)'; fg.lineWidth = 1.4;
+    for (const l of c.lines) { fg.beginPath(); fg.moveTo(l[0][0], l[0][1]); for (const pt of l) fg.lineTo(pt[0], pt[1]); fg.stroke(); }
+  }
+  fg.globalAlpha = 1; cracks = cracks.filter((c) => c.life > 0);
+}
+reset();
+document.fonts && document.fonts.load('600 10px "Pixelify Sans"').finally(() => requestAnimationFrame(loop));
+if (!document.fonts) requestAnimationFrame(loop);
+// подсказка, что кнопка на перезарядке
+setInterval(() => { if (!S) return; const h = S.hero; keyEls['+'].classList.toggle('cool', h.healCd > 0); keyEls['%'].classList.toggle('cool', h.curseCd > 0); keyEls['2'].classList.toggle('cool', h.duckCd > 0); }, 200);
+</script>
+
+</html>
